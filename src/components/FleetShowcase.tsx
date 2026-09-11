@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Vehicle } from '../types';
 import { FLEET_DATA } from '../data/fleetData';
 import { ArrowRight, ChevronLeft, ChevronRight, Gauge, Zap, Wind } from 'lucide-react';
@@ -9,6 +9,39 @@ interface FleetShowcaseProps {
   onReserveVehicle: (vehicle: Vehicle) => void;
 }
 
+// Subtle technical specification number animator
+const AnimatedNumber: React.FC<{ value: number; duration?: number; decimals?: number }> = ({
+  value,
+  duration = 380,
+  decimals = 0,
+}) => {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp: number | null = null;
+    const startVal = 0;
+
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      // Fast ease-out quint
+      const ease = 1 - Math.pow(1 - progress, 4);
+      const current = startVal + (value - startVal) * ease;
+      setDisplayValue(current);
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        setDisplayValue(value);
+      }
+    };
+
+    requestAnimationFrame(step);
+  }, [value, duration]);
+
+  return <span>{decimals > 0 ? displayValue.toFixed(decimals) : Math.round(displayValue)}</span>;
+};
+
 export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
   onSelectVehicle,
   onReserveVehicle,
@@ -16,6 +49,7 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [transitionDirection, setTransitionDirection] = useState<'left' | 'right'>('right');
 
   const categories = ['ALL', 'PERFORMANCE', 'SUPERCAR', 'LUXURY SUV', 'EXECUTIVE EV'];
 
@@ -25,23 +59,24 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
 
   const activeVehicle = filteredFleet[currentIndex] || filteredFleet[0] || FLEET_DATA[0];
 
-  const switchVehicle = (newIndex: number) => {
+  const switchVehicle = (newIndex: number, direction: 'left' | 'right' = 'right') => {
     audioEngine.playClick();
+    setTransitionDirection(direction);
     setIsTransitioning(true);
     setTimeout(() => {
       setCurrentIndex(newIndex);
       setIsTransitioning(false);
-    }, 220);
+    }, 240);
   };
 
   const handleNext = () => {
     const next = (currentIndex + 1) % filteredFleet.length;
-    switchVehicle(next);
+    switchVehicle(next, 'right');
   };
 
   const handlePrev = () => {
     const prev = (currentIndex - 1 + filteredFleet.length) % filteredFleet.length;
-    switchVehicle(prev);
+    switchVehicle(prev, 'left');
   };
 
   const handleCategoryChange = (cat: string) => {
@@ -49,6 +84,11 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
     setSelectedCategory(cat);
     setCurrentIndex(0);
   };
+
+  // Parse numeric values for animated telemetry
+  const hpNum = parseInt(activeVehicle.power.replace(/\D/g, ''), 10) || 440;
+  const accelNum = parseFloat(activeVehicle.acceleration.replace(/[^0-9.]/g, '')) || 3.5;
+  const speedNum = parseInt(activeVehicle.topSpeed.replace(/\D/g, ''), 10) || 300;
 
   return (
     <section id="fleet" className="relative w-full bg-[#080808] py-28 md:py-36 border-t border-white/[0.06]">
@@ -103,7 +143,11 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
             {/* Left Column: Vehicle Telemetry & Editorial Detail */}
             <div
               className={`lg:col-span-5 flex flex-col justify-between transition-all duration-300 ${
-                isTransitioning ? 'opacity-30 -translate-x-3' : 'opacity-100 translate-x-0'
+                isTransitioning
+                  ? transitionDirection === 'right'
+                    ? 'opacity-20 -translate-x-6'
+                    : 'opacity-20 translate-x-6'
+                  : 'opacity-100 translate-x-0'
               }`}
             >
               <div>
@@ -130,7 +174,7 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
                   </span>
                 </div>
 
-                {/* Technical Specifications Grid */}
+                {/* Animated Technical Specifications Grid */}
                 <div className="grid grid-cols-3 gap-4 py-6 border-y border-white/[0.08] my-6">
                   <div>
                     <div className="flex items-center gap-1 text-[#8B8B8B] mb-1">
@@ -138,7 +182,7 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
                       <span className="font-mono text-[0.65rem] tracking-widest uppercase">POWER</span>
                     </div>
                     <span className="font-mono text-xl sm:text-2xl font-bold text-[#F4F3EF]">
-                      {activeVehicle.power}
+                      <AnimatedNumber key={`hp-${activeVehicle.id}`} value={hpNum} /> HP
                     </span>
                   </div>
 
@@ -148,7 +192,7 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
                       <span className="font-mono text-[0.65rem] tracking-widest uppercase">0–100</span>
                     </div>
                     <span className="font-mono text-xl sm:text-2xl font-bold text-[#F4F3EF]">
-                      {activeVehicle.acceleration}
+                      <AnimatedNumber key={`acc-${activeVehicle.id}`} value={accelNum} decimals={1} /> SEC
                     </span>
                   </div>
 
@@ -158,7 +202,7 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
                       <span className="font-mono text-[0.65rem] tracking-widest uppercase">V-MAX</span>
                     </div>
                     <span className="font-mono text-xl sm:text-2xl font-bold text-[#F4F3EF]">
-                      {activeVehicle.topSpeed.split(' ')[0]}
+                      <AnimatedNumber key={`spd-${activeVehicle.id}`} value={speedNum} />
                     </span>
                   </div>
                 </div>
@@ -177,7 +221,7 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
                   </span>
                   <div className="flex items-baseline gap-2">
                     <span className="font-mono text-3xl md:text-4xl font-extrabold text-[#F4F3EF]">
-                      ₹{activeVehicle.pricePerDay.toLocaleString('en-IN')}
+                      ₹<AnimatedNumber key={`prc-${activeVehicle.id}`} value={activeVehicle.pricePerDay} />
                     </span>
                     <span className="font-mono text-xs text-[#8B8B8B] tracking-wider">
                       / CALENDAR DAY
@@ -210,18 +254,22 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
               </div>
             </div>
 
-            {/* Right Column: Massive Studio Vehicle Visual */}
-            <div className="lg:col-span-7 relative flex items-center justify-center min-h-[340px] md:min-h-[460px]">
+            {/* Right Column: Massive Studio Vehicle Visual with 3D Camera Transition Illusion */}
+            <div className="lg:col-span-7 relative flex items-center justify-center min-h-[340px] md:min-h-[460px] perspective-1000">
               
               {/* Studio Light Disc Backdrop */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="w-[85%] h-[75%] rounded-full bg-radial from-white/[0.04] to-transparent blur-3xl" />
               </div>
 
-              {/* Animated Vehicle Image */}
+              {/* Animated Vehicle Image with Inertial Camera Transition */}
               <div
                 className={`relative w-full transition-all duration-500 ease-out transform ${
-                  isTransitioning ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'
+                  isTransitioning
+                    ? transitionDirection === 'right'
+                      ? 'opacity-0 scale-90 translate-x-12 rotate-y-6'
+                      : 'opacity-0 scale-90 -translate-x-12 -rotate-y-6'
+                    : 'opacity-100 scale-100 translate-x-0 rotate-y-0'
                 }`}
               >
                 <img
@@ -232,17 +280,17 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
               </div>
 
               {/* Navigation Arrows */}
-              <div className="absolute bottom-2 right-2 flex items-center gap-2">
+              <div className="absolute bottom-2 right-2 flex items-center gap-2 z-20">
                 <button
                   onClick={handlePrev}
-                  className="w-11 h-11 rounded-sm bg-black/60 border border-white/15 flex items-center justify-center text-white hover:bg-[#C7FF3D] hover:text-black hover:border-transparent transition-all"
+                  className="w-11 h-11 rounded-sm bg-black/60 border border-white/15 flex items-center justify-center text-white hover:bg-[#C7FF3D] hover:text-black hover:border-transparent transition-all cursor-pointer"
                   aria-label="Previous vehicle"
                 >
                   <ChevronLeft size={20} />
                 </button>
                 <button
                   onClick={handleNext}
-                  className="w-11 h-11 rounded-sm bg-black/60 border border-white/15 flex items-center justify-center text-white hover:bg-[#C7FF3D] hover:text-black hover:border-transparent transition-all"
+                  className="w-11 h-11 rounded-sm bg-black/60 border border-white/15 flex items-center justify-center text-white hover:bg-[#C7FF3D] hover:text-black hover:border-transparent transition-all cursor-pointer"
                   aria-label="Next vehicle"
                 >
                   <ChevronRight size={20} />
@@ -259,7 +307,7 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
             return (
               <div
                 key={vehicle.id}
-                onClick={() => switchVehicle(idx)}
+                onClick={() => switchVehicle(idx, idx > currentIndex ? 'right' : 'left')}
                 className={`p-3 rounded-sm border cursor-pointer transition-all duration-300 flex flex-col justify-between ${
                   isActive
                     ? 'bg-[#181818] border-[#C7FF3D] shadow-[0_0_20px_rgba(199,255,61,0.12)]'
@@ -270,7 +318,9 @@ export const FleetShowcase: React.FC<FleetShowcaseProps> = ({
                   <span className={isActive ? 'text-[#C7FF3D] font-bold' : 'text-[#8B8B8B]'}>
                     {vehicle.orderNumber}
                   </span>
-                  <span className="text-[#8B8B8B]">{vehicle.power}</span>
+                  <span className={isActive ? 'text-white font-bold' : 'text-[#8B8B8B]'}>
+                    {vehicle.power}
+                  </span>
                 </div>
 
                 <div className="h-14 w-full flex items-center justify-center overflow-hidden my-1">
