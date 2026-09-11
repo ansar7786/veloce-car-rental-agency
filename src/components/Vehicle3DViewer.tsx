@@ -12,7 +12,7 @@ export interface HotspotData {
   category: string;
   description: string;
   specs: string;
-  position: [number, number, number]; // 3D world coords
+  position: [number, number, number]; // Normalized relative to vehicle center
   cameraTarget: [number, number, number];
   cameraPosition: [number, number, number];
 }
@@ -25,9 +25,9 @@ const HOTSPOTS: HotspotData[] = [
     category: 'OPTICAL ENGINEERING',
     description: 'Ultra-thin matrix LED optics featuring 84 individually controlled diodes. Adaptive high-beam shadow masking ensures maximum tarmac illumination without dazzling oncoming traffic.',
     specs: '600M HIGH-BEAM RANGE • 0.05S ADAPTIVE LATENCY',
-    position: [0.75, 0.45, 1.9],
-    cameraTarget: [0.6, 0.4, 1.6],
-    cameraPosition: [1.6, 0.8, 2.8]
+    position: [0.72, 0.48, 1.85],
+    cameraTarget: [0.5, 0.45, 1.5],
+    cameraPosition: [1.4, 0.75, 2.5]
   },
   {
     id: 'powertrain',
@@ -36,9 +36,9 @@ const HOTSPOTS: HotspotData[] = [
     category: 'MECHANICAL TELEMETRY',
     description: 'Dry-sump twin-turbo mid-rear configuration with anti-lag bypass valves. Forged titanium connecting rods and ceramic-coated exhaust manifolds tuned for instantaneous boost delivery.',
     specs: '8,200 RPM REDLINE • 720 NM PEAK TORQUE • ZERO LAG',
-    position: [0, 0.65, -0.8],
-    cameraTarget: [0, 0.5, -0.6],
-    cameraPosition: [0, 2.2, -2.6]
+    position: [0, 0.7, -0.65],
+    cameraTarget: [0, 0.55, -0.5],
+    cameraPosition: [0, 2.0, -2.3]
   },
   {
     id: 'aero',
@@ -47,9 +47,9 @@ const HOTSPOTS: HotspotData[] = [
     category: 'ACTIVE AERODYNAMICS',
     description: 'Carbon-fiber rear diffuser and active variable-geometry rear aerofoil. Creates mathematical low-pressure suction under high-speed sweepers, generating 400 kg of genuine downforce.',
     specs: '400 KG DOWNFORCE @ 250 KM/H • 0.31 CD DRAG INDEX',
-    position: [-0.85, 0.55, -1.85],
-    cameraTarget: [0, 0.4, -1.6],
-    cameraPosition: [-2.2, 1.1, -3.2]
+    position: [-0.75, 0.45, -1.95],
+    cameraTarget: [0, 0.4, -1.5],
+    cameraPosition: [-1.9, 0.95, -2.8]
   },
   {
     id: 'cockpit',
@@ -58,9 +58,9 @@ const HOTSPOTS: HotspotData[] = [
     category: 'INTERIOR ARCHITECTURE',
     description: 'Carbon-fiber monocoque passenger cell draped in weight-saving micro-suede Alcantara. Integrated telemetry HUD directly projected on the anti-reflective windshield.',
     specs: 'FIA TRACK SPEC SEATING • 12.3" DIGITAL COCKPIT',
-    position: [0.35, 0.8, 0.1],
-    cameraTarget: [0, 0.7, 0.1],
-    cameraPosition: [1.2, 1.4, 0.8]
+    position: [0.35, 0.85, 0.05],
+    cameraTarget: [0, 0.65, 0.05],
+    cameraPosition: [1.1, 1.3, 0.7]
   },
   {
     id: 'brakes',
@@ -70,8 +70,8 @@ const HOTSPOTS: HotspotData[] = [
     description: 'Cross-drilled carbon-ceramic brake rotors with bespoke Electric Lime 6-piston monobloc aluminium calipers. Fade-free retardation from 200 km/h to standstill in under 4.1 seconds.',
     specs: '390MM FRONT / 360MM REAR • 1,000°C THERMAL CAPACITY',
     position: [0.95, 0.32, 1.25],
-    cameraTarget: [0.85, 0.3, 1.2],
-    cameraPosition: [1.8, 0.5, 1.8]
+    cameraTarget: [0.85, 0.32, 1.2],
+    cameraPosition: [1.7, 0.48, 1.7]
   }
 ];
 
@@ -133,12 +133,12 @@ const COLOR_FINISHES: ColorFinish[] = [
   }
 ];
 
-const CAMERA_PRESETS = [
-  { label: '01 THREE-QUARTER', pos: [3.4, 1.25, 3.8], target: [0, 0.2, 0] },
-  { label: '02 FRONT', pos: [0, 0.9, 4.4], target: [0, 0.2, 0] },
-  { label: '03 PROFILE', pos: [4.4, 0.95, 0], target: [0, 0.2, 0] },
-  { label: '04 REAR', pos: [0, 1.1, -4.2], target: [0, 0.2, 0] },
-  { label: '05 TOP DOWN', pos: [0.1, 4.8, 0.1], target: [0, 0, 0] }
+const PRESET_LABELS = [
+  '01 THREE-QUARTER',
+  '02 FRONT',
+  '03 PROFILE',
+  '04 REAR',
+  '05 TOP DOWN'
 ];
 
 interface Vehicle3DViewerProps {
@@ -163,12 +163,15 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
   const [introFinished, setIntroFinished] = useState(false);
   const [screen2DHotspots, setScreen2DHotspots] = useState<{ id: string; x: number; y: number; visible: boolean }[]>([]);
 
-  // Three.js References
+  // Three.js Scene References
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const carGroupRef = useRef<THREE.Group | null>(null);
+  const shadowMeshRef = useRef<THREE.Mesh | null>(null);
   const bodyMaterialsRef = useRef<THREE.MeshPhysicalMaterial[]>([]);
+  const carCenterYRef = useRef<number>(0.52);
+
   const lightsRef = useRef<{
     keyLight: THREE.DirectionalLight;
     rimLight: THREE.DirectionalLight;
@@ -177,16 +180,42 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
     ambient: THREE.AmbientLight;
   } | null>(null);
 
-  // Interaction & Camera Kinematics
+  // Interaction & Kinematics References
   const isPointerDownRef = useRef(false);
   const previousPointerPositionRef = useRef({ x: 0, y: 0 });
   const rotationVelocityRef = useRef({ x: 0, y: 0 });
   const targetCarRotationRef = useRef({ y: -0.45 });
-  const cameraTargetPosRef = useRef(new THREE.Vector3(3.4, 1.25, 3.8));
-  const cameraLookAtRef = useRef(new THREE.Vector3(0, 0.2, 0));
-  const currentLookAtRef = useRef(new THREE.Vector3(0, 0.2, 0));
+  const cameraTargetPosRef = useRef(new THREE.Vector3(3.6, 1.4, 4.3));
+  const cameraLookAtRef = useRef(new THREE.Vector3(0, 0.52, 0));
+  const currentLookAtRef = useRef(new THREE.Vector3(0, 0.52, 0));
   const mouseParallaxRef = useRef({ x: 0, y: 0 });
   const introStartTimeRef = useRef<number | null>(null);
+  const scrollOffsetRef = useRef(0);
+
+  // Responsive camera framing calculator
+  const getResponsiveMultiplier = (aspect: number) => {
+    if (aspect < 0.75) return 1.55; // Mobile portrait (e.g. 390x844)
+    if (aspect < 1.0) return 1.35;  // Tablet portrait (e.g. 768x1024)
+    if (aspect < 1.35) return 1.15; // Tablet landscape (e.g. 1024x768)
+    return 1.0;                     // Desktop 1440x900 (aspect ~1.6)
+  };
+
+  const getPresetVectors = (idx: number, aspect: number, centerY: number) => {
+    const mult = getResponsiveMultiplier(aspect);
+    const presets = [
+      // 01 THREE-QUARTER (Hero view - vehicle occupies 55-65% centered)
+      { pos: new THREE.Vector3(3.6 * mult, centerY + 0.85, 4.3 * mult), target: new THREE.Vector3(0, centerY, 0) },
+      // 02 FRONT
+      { pos: new THREE.Vector3(0, centerY + 0.55, 5.6 * mult), target: new THREE.Vector3(0, centerY, 0) },
+      // 03 PROFILE
+      { pos: new THREE.Vector3(5.5 * mult, centerY + 0.65, 0), target: new THREE.Vector3(0, centerY, 0) },
+      // 04 REAR
+      { pos: new THREE.Vector3(0, centerY + 0.75, -5.5 * mult), target: new THREE.Vector3(0, centerY, 0) },
+      // 05 TOP DOWN
+      { pos: new THREE.Vector3(0.01, centerY + 5.8 * mult, 0.01), target: new THREE.Vector3(0, centerY, 0) }
+    ];
+    return presets[idx] || presets[0];
+  };
 
   // Initialize Three.js Scene
   useEffect(() => {
@@ -194,19 +223,26 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
 
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
+    const aspect = width / height;
 
-    // Scene
+    // 1. Scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x080808);
-    scene.fog = new THREE.FogExp2(0x080808, 0.08);
+    scene.fog = new THREE.FogExp2(0x080808, 0.06);
     sceneRef.current = scene;
 
-    // Camera
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 40);
-    camera.position.set(4.5, 1.8, 5.0); // start slightly further for intro reveal
+    // 2. Camera with FOV tailored to prevent wide-angle distortion
+    const camera = new THREE.PerspectiveCamera(36, aspect, 0.1, 40);
+    const initialPreset = getPresetVectors(0, aspect, 0.52);
+    camera.position.copy(initialPreset.pos).multiplyScalar(1.2); // Start slightly further for intro reveal
+    camera.lookAt(initialPreset.target);
     cameraRef.current = camera;
 
-    // Renderer
+    cameraTargetPosRef.current.copy(initialPreset.pos);
+    cameraLookAtRef.current.copy(initialPreset.target);
+    currentLookAtRef.current.copy(initialPreset.target);
+
+    // 3. Renderer
     const renderer = new THREE.WebGLRenderer({
       canvas: canvasRef.current,
       antialias: true,
@@ -216,85 +252,82 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.18;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     rendererRef.current = renderer;
 
-    // Environment Generator (Dark Studio Softbox Reflection)
+    // 4. Studio Environment Generator
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
 
-    // Create Studio Reflection Cube (Simulated high-end dark automotive cyclorama)
     const studioScene = new THREE.Scene();
     studioScene.background = new THREE.Color(0x040404);
 
     // Overhead giant softbox reflector
-    const softboxGeo = new THREE.PlaneGeometry(12, 12);
+    const softboxGeo = new THREE.PlaneGeometry(14, 14);
     const softboxMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
     const softboxMesh = new THREE.Mesh(softboxGeo, softboxMat);
-    softboxMesh.position.set(0, 7, 0);
+    softboxMesh.position.set(0, 8, 0);
     softboxMesh.rotation.x = Math.PI / 2;
     studioScene.add(softboxMesh);
 
     // Side linear light strip
-    const sideStripGeo = new THREE.PlaneGeometry(16, 1.5);
-    const sideStripMat = new THREE.MeshBasicMaterial({ color: 0xe0e5ff });
+    const sideStripGeo = new THREE.PlaneGeometry(18, 1.8);
+    const sideStripMat = new THREE.MeshBasicMaterial({ color: 0xe8ecfa });
     const sideStripMesh = new THREE.Mesh(sideStripGeo, sideStripMat);
-    sideStripMesh.position.set(5, 2.5, 0);
+    sideStripMesh.position.set(6, 2.8, 0);
     sideStripMesh.rotation.y = -Math.PI / 2;
     studioScene.add(sideStripMesh);
 
-    // Subtle opposite neon lime laser rim reflection
+    // Opposite laser line
     const limeStripMat = new THREE.MeshBasicMaterial({ color: 0xc7ff3d });
     const limeStripMesh = new THREE.Mesh(sideStripGeo, limeStripMat);
-    limeStripMesh.position.set(-5, 2.2, 0);
+    limeStripMesh.position.set(-6, 2.5, 0);
     limeStripMesh.rotation.y = Math.PI / 2;
     studioScene.add(limeStripMesh);
 
     const studioEnvTexture = pmremGenerator.fromScene(studioScene, 0.04).texture;
     scene.environment = studioEnvTexture;
 
-    // Studio Lighting Setup
-    const ambient = new THREE.AmbientLight(0x080808, 0.6);
+    // 5. Studio Lighting Setup
+    const ambient = new THREE.AmbientLight(0x080808, 0.7);
     scene.add(ambient);
 
     // Key Light: Overhead angled soft illumination
-    const keyLight = new THREE.DirectionalLight(0xffffff, 0); // starts at 0 for cinematic reveal
-    keyLight.position.set(3, 6, 4);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0);
+    keyLight.position.set(4, 7, 5);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.width = 2048;
     keyLight.shadow.mapSize.height = 2048;
-    keyLight.shadow.camera.near = 0.5;
-    keyLight.shadow.camera.far = 15;
     keyLight.shadow.bias = -0.0001;
     scene.add(keyLight);
 
     // Rim Light: Behind vehicle defining aerodynamic roofline & haunches
     const rimLight = new THREE.DirectionalLight(0xffffff, 0);
-    rimLight.position.set(-4, 3.5, -4);
+    rimLight.position.set(-5, 4, -5);
     scene.add(rimLight);
 
     // Side Light: Sculptural door contour reflection
     const sideLight = new THREE.DirectionalLight(0xdfe6f0, 0);
-    sideLight.position.set(5, 2.5, 1);
+    sideLight.position.set(6, 2.8, 1);
     scene.add(sideLight);
 
     // Top Down Overhead Softbox Spot
-    const topSoftbox = new THREE.SpotLight(0xffffff, 0, 14, Math.PI / 4, 0.4, 1.5);
-    topSoftbox.position.set(0, 6, 0);
+    const topSoftbox = new THREE.SpotLight(0xffffff, 0, 16, Math.PI / 3.5, 0.4, 1.5);
+    topSoftbox.position.set(0, 7, 0);
     topSoftbox.target.position.set(0, 0, 0);
     scene.add(topSoftbox);
     scene.add(topSoftbox.target);
 
     lightsRef.current = { keyLight, rimLight, sideLight, topSoftbox, ambient };
 
-    // Ground Studio Floor with circular reflection & shadow receiver
-    const floorGeo = new THREE.PlaneGeometry(30, 30);
+    // 6. Ground Studio Floor
+    const floorGeo = new THREE.PlaneGeometry(40, 40);
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0x070707,
-      roughness: 0.35,
-      metalness: 0.6,
+      roughness: 0.3,
+      metalness: 0.65,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
@@ -302,16 +335,16 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // Ground Radial Shadow Vignette Mesh
-    const shadowDiscGeo = new THREE.CircleGeometry(3.6, 64);
+    // Ground Radial Shadow Vignette Mesh (centered at 0, 0)
+    const shadowDiscGeo = new THREE.CircleGeometry(1, 64);
     const shadowCanvas = document.createElement('canvas');
     shadowCanvas.width = 512;
     shadowCanvas.height = 512;
     const sCtx = shadowCanvas.getContext('2d')!;
-    const sGrad = sCtx.createRadialGradient(256, 256, 40, 256, 256, 256);
-    sGrad.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
-    sGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.65)');
-    sGrad.addColorStop(0.85, 'rgba(0, 0, 0, 0.2)');
+    const sGrad = sCtx.createRadialGradient(256, 256, 30, 256, 256, 256);
+    sGrad.addColorStop(0, 'rgba(0, 0, 0, 0.96)');
+    sGrad.addColorStop(0.45, 'rgba(0, 0, 0, 0.65)');
+    sGrad.addColorStop(0.85, 'rgba(0, 0, 0, 0.18)');
     sGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     sCtx.fillStyle = sGrad;
     sCtx.fillRect(0, 0, 512, 512);
@@ -324,16 +357,19 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
     });
     const shadowMesh = new THREE.Mesh(shadowDiscGeo, shadowMat);
     shadowMesh.rotation.x = -Math.PI / 2;
-    shadowMesh.position.y = 0.005;
+    shadowMesh.position.set(0, 0.005, 0);
+    shadowMesh.scale.set(3.4, 3.4, 1);
     scene.add(shadowMesh);
+    shadowMeshRef.current = shadowMesh;
 
-    // Car Group container
+    // 7. Vehicle Parent Group (Rooted strictly at World 0, 0, 0)
     const carGroup = new THREE.Group();
+    carGroup.position.set(0, 0, 0);
     carGroup.rotation.y = targetCarRotationRef.current.y;
     scene.add(carGroup);
     carGroupRef.current = carGroup;
 
-    // Load High-Detail GLB Car Model
+    // 8. Load High-Detail GLB Model with Exact Geometric Normalization
     const loader = new GLTFLoader();
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -343,10 +379,46 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
       '/models/ferrari.glb',
       (gltf) => {
         const car = gltf.scene;
-        car.scale.set(1.15, 1.15, 1.15);
-        car.position.set(0, 0, 0);
 
-        // Traverse and enhance with ultra-realistic automotive PBR shaders
+        // CRITICAL FIX: Calculate original bounding box of the car
+        const box = new THREE.Box3().setFromObject(car);
+        const size = box.getSize(new THREE.Vector3());
+
+        // Standardize vehicle scale so it prominently occupies 55–65% of the hero
+        const targetLength = 4.6; // 4.6 meters standard sports car length
+        const currentLength = Math.max(size.x, size.z);
+        const scaleFactor = targetLength / currentLength;
+        car.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+        // Recalculate scaled bounds
+        const scaledBox = new THREE.Box3().setFromObject(car);
+        const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+        const scaledSize = scaledBox.getSize(new THREE.Vector3());
+
+        // EXACT NORMALIZATION: Offset the vehicle so its geometric center is at (0, y, 0)
+        // and its wheels touch the ground at y = 0
+        car.position.x = -scaledCenter.x;
+        car.position.y = -scaledBox.min.y;
+        car.position.z = -scaledCenter.z;
+
+        // Vehicle Visual Center (approx mid-height above ground)
+        const carVisualCenterY = scaledSize.y * 0.44;
+        carCenterYRef.current = carVisualCenterY;
+
+        // Update camera targets to look at the exact center of the vehicle
+        const currentAspect = containerRef.current ? containerRef.current.clientWidth / containerRef.current.clientHeight : 1.6;
+        const correctPreset = getPresetVectors(0, currentAspect, carVisualCenterY);
+        cameraTargetPosRef.current.copy(correctPreset.pos);
+        cameraLookAtRef.current.copy(correctPreset.target);
+        currentLookAtRef.current.copy(correctPreset.target);
+
+        // Scale ground shadow to match exact footprint
+        const shadowRadius = Math.max(scaledSize.x, scaledSize.z) * 0.65;
+        if (shadowMeshRef.current) {
+          shadowMeshRef.current.scale.set(shadowRadius, shadowRadius, 1);
+        }
+
+        // PBR Shader Calibration
         const bodyMats: THREE.MeshPhysicalMaterial[] = [];
 
         car.traverse((child) => {
@@ -374,7 +446,7 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
                 clearcoat: COLOR_FINISHES[0].clearcoat,
                 clearcoatRoughness: COLOR_FINISHES[0].clearcoatRoughness,
                 reflectivity: 1.0,
-                envMapIntensity: 1.4,
+                envMapIntensity: 1.5,
               });
               mesh.material = bodyMat;
               bodyMats.push(bodyMat);
@@ -382,10 +454,10 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
             // Glass / Windows
             else if (matName.includes('glass') || nodeName.includes('glass') || matName.includes('window')) {
               mesh.material = new THREE.MeshPhysicalMaterial({
-                color: new THREE.Color(0x10151c),
+                color: new THREE.Color(0x0e141c),
                 metalness: 0.1,
-                roughness: 0.05,
-                transmission: 0.9,
+                roughness: 0.04,
+                transmission: 0.92,
                 transparent: true,
                 opacity: 0.88,
                 ior: 1.52,
@@ -393,19 +465,19 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
                 envMapIntensity: 1.8,
               });
             }
-            // Carbon Fiber / Trim
+            // Carbon Fiber / Splitters / Diffuser
             else if (matName.includes('carbon') || matName.includes('black') || nodeName.includes('carbon') || nodeName.includes('diffuser')) {
               mesh.material = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(0x111113),
-                roughness: 0.45,
-                metalness: 0.7,
+                color: new THREE.Color(0x101012),
+                roughness: 0.42,
+                metalness: 0.72,
                 envMapIntensity: 1.0,
               });
             }
-            // Rims / Alloy
+            // Wheels / Rims
             else if (matName.includes('rim') || nodeName.includes('rim') || matName.includes('wheel')) {
               mesh.material = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(0x353538),
+                color: new THREE.Color(0x323236),
                 metalness: 0.95,
                 roughness: 0.18,
                 envMapIntensity: 1.8,
@@ -416,15 +488,15 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
               mesh.material = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(0xc7ff3d),
                 metalness: 0.85,
-                roughness: 0.25,
-                emissive: new THREE.Color(0x304207),
-                emissiveIntensity: 0.3,
+                roughness: 0.22,
+                emissive: new THREE.Color(0x283806),
+                emissiveIntensity: 0.35,
               });
             }
             // Tires / Rubber
             else if (matName.includes('tire') || matName.includes('rubber') || nodeName.includes('tire')) {
               mesh.material = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(0x151515),
+                color: new THREE.Color(0x141414),
                 roughness: 0.92,
                 metalness: 0.05,
               });
@@ -448,6 +520,14 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
       }
     );
 
+    // Scroll Handler for continuous elevation without horizontal drift
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      const progress = Math.min(scrollY / 800, 1);
+      scrollOffsetRef.current = progress;
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
     // Render & Animation Loop
     let animationFrameId: number;
 
@@ -456,60 +536,65 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
 
       const now = performance.now();
 
-      // 1. Cinematic Intro Lighting Transition
+      // 1. Cinematic Staged Intro Sequence
       if (introStartTimeRef.current && lightsRef.current) {
         const elapsed = (now - introStartTimeRef.current) / 1000;
-        const introDuration = 2.4; // 2.4s reveal
+        const introDuration = 2.4;
 
         if (elapsed < introDuration) {
           const t = elapsed / introDuration;
           const easeOut = 1 - Math.pow(1 - t, 3);
 
-          lightsRef.current.keyLight.intensity = THREE.MathUtils.lerp(0, 3.2, easeOut);
-          lightsRef.current.rimLight.intensity = THREE.MathUtils.lerp(0, 4.5, easeOut);
-          lightsRef.current.sideLight.intensity = THREE.MathUtils.lerp(0, 2.8, easeOut);
-          lightsRef.current.topSoftbox.intensity = THREE.MathUtils.lerp(0, 2.4, easeOut);
+          lightsRef.current.keyLight.intensity = THREE.MathUtils.lerp(0, 3.4, easeOut);
+          lightsRef.current.rimLight.intensity = THREE.MathUtils.lerp(0, 4.8, easeOut);
+          lightsRef.current.sideLight.intensity = THREE.MathUtils.lerp(0, 2.9, easeOut);
+          lightsRef.current.topSoftbox.intensity = THREE.MathUtils.lerp(0, 2.5, easeOut);
 
-          // Camera moves subtly forward during intro
-          camera.position.x = THREE.MathUtils.lerp(4.2, cameraTargetPosRef.current.x, easeOut);
-          camera.position.y = THREE.MathUtils.lerp(1.7, cameraTargetPosRef.current.y, easeOut);
-          camera.position.z = THREE.MathUtils.lerp(4.8, cameraTargetPosRef.current.z, easeOut);
+          // Camera tracks smoothly forward into hero framing
+          camera.position.x = THREE.MathUtils.lerp(cameraTargetPosRef.current.x * 1.25, cameraTargetPosRef.current.x, easeOut);
+          camera.position.y = THREE.MathUtils.lerp(cameraTargetPosRef.current.y * 1.2, cameraTargetPosRef.current.y, easeOut);
+          camera.position.z = THREE.MathUtils.lerp(cameraTargetPosRef.current.z * 1.25, cameraTargetPosRef.current.z, easeOut);
         } else if (!introFinished) {
-          lightsRef.current.keyLight.intensity = 3.2;
-          lightsRef.current.rimLight.intensity = 4.5;
-          lightsRef.current.sideLight.intensity = 2.8;
-          lightsRef.current.topSoftbox.intensity = 2.4;
+          lightsRef.current.keyLight.intensity = 3.4;
+          lightsRef.current.rimLight.intensity = 4.8;
+          lightsRef.current.sideLight.intensity = 2.9;
+          lightsRef.current.topSoftbox.intensity = 2.5;
           setIntroFinished(true);
         }
       }
 
-      // 2. Inertial Car Rotation
+      // 2. Inertial Car Rotation around its EXACT geometric center
       if (carGroupRef.current) {
         if (!isPointerDownRef.current) {
-          // Inertial deceleration damping
-          rotationVelocityRef.current.y *= 0.94;
+          // Damped deceleration
+          rotationVelocityRef.current.y *= 0.93;
           targetCarRotationRef.current.y += rotationVelocityRef.current.y;
         }
 
-        // Smoothly interpolate rotation
         carGroupRef.current.rotation.y = THREE.MathUtils.lerp(
           carGroupRef.current.rotation.y,
           targetCarRotationRef.current.y,
-          0.12
+          0.14
         );
       }
 
-      // 3. Smooth Camera Transitions & Parallax
+      // 3. Smooth Camera Positioning & Centered Parallax
       if (introFinished) {
-        const targetX = cameraTargetPosRef.current.x + mouseParallaxRef.current.x * 0.45;
-        const targetY = cameraTargetPosRef.current.y + mouseParallaxRef.current.y * 0.25;
+        // Parallax is symmetrical and centered
+        const parallaxX = mouseParallaxRef.current.x * 0.35;
+        const parallaxY = mouseParallaxRef.current.y * 0.2;
+        const scrollElevate = scrollOffsetRef.current * 0.35;
+
+        const targetX = cameraTargetPosRef.current.x + parallaxX;
+        const targetY = cameraTargetPosRef.current.y + parallaxY + scrollElevate;
         const targetZ = cameraTargetPosRef.current.z;
 
-        camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetX, 0.08);
-        camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 0.08);
-        camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ, 0.08);
+        camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetX, 0.09);
+        camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 0.09);
+        camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ, 0.09);
 
-        currentLookAtRef.current.lerp(cameraLookAtRef.current, 0.1);
+        // Keep camera looking directly at the vehicle's visual center (zero horizontal skew)
+        currentLookAtRef.current.lerp(cameraLookAtRef.current, 0.12);
         camera.lookAt(currentLookAtRef.current);
       }
 
@@ -522,7 +607,6 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
           const worldPos = new THREE.Vector3(...spot.position);
           worldPos.applyAxisAngle(new THREE.Vector3(0, 1, 0), carGroupRef.current!.rotation.y);
 
-          // Check if behind camera
           const clone = worldPos.clone();
           clone.project(cameraRef.current!);
 
@@ -541,14 +625,23 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
 
     animate();
 
-    // Handle Window Resize
+    // 5. Responsive Resize Handler
     const handleResize = () => {
       if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
       const w = containerRef.current.clientWidth;
       const h = containerRef.current.clientHeight;
-      cameraRef.current.aspect = w / h;
+      const newAspect = w / h;
+
+      cameraRef.current.aspect = newAspect;
       cameraRef.current.updateProjectionMatrix();
       rendererRef.current.setSize(w, h);
+
+      // Re-adjust framing to ensure vehicle remains centered and uncropped
+      if (!activeHotspot) {
+        const updatedPreset = getPresetVectors(activePreset, newAspect, carCenterYRef.current);
+        cameraTargetPosRef.current.copy(updatedPreset.pos);
+        cameraLookAtRef.current.copy(updatedPreset.target);
+      }
     };
 
     window.addEventListener('resize', handleResize);
@@ -556,10 +649,11 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll);
       renderer.dispose();
       pmremGenerator.dispose();
     };
-  }, []);
+  }, [activePreset, activeHotspot]);
 
   // Update Paint Finish on all body meshes
   useEffect(() => {
@@ -613,9 +707,12 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
     audioEngine.playClick();
     setActivePreset(index);
     setActiveHotspot(null);
-    const preset = CAMERA_PRESETS[index];
-    cameraTargetPosRef.current.set(preset.pos[0], preset.pos[1], preset.pos[2]);
-    cameraLookAtRef.current.set(preset.target[0], preset.target[1], preset.target[2]);
+    if (containerRef.current) {
+      const aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
+      const preset = getPresetVectors(index, aspect, carCenterYRef.current);
+      cameraTargetPosRef.current.copy(preset.pos);
+      cameraLookAtRef.current.copy(preset.target);
+    }
   };
 
   // Inspect Hotspot
@@ -640,7 +737,7 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      className="relative w-full h-[540px] sm:h-[620px] lg:h-[720px] select-none cursor-grab active:cursor-grabbing overflow-hidden"
+      className="relative w-full h-[520px] sm:h-[600px] lg:h-[680px] select-none cursor-grab active:cursor-grabbing overflow-hidden mx-auto"
     >
       {/* 3D WebGL Canvas */}
       <canvas ref={canvasRef} className="w-full h-full block" />
@@ -661,7 +758,7 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
             />
           </div>
           <span className="font-mono text-xs text-[#8B8B8B] tracking-widest uppercase">
-            CALIBRATING 3D MACHINE TELEMETRY {loadProgress}%
+            CENTERING 3D MACHINE CHASSIS {loadProgress}%
           </span>
         </div>
       )}
@@ -747,7 +844,7 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
 
         {/* Right: Camera Angles Selector */}
         <div className="hidden sm:flex items-center gap-1.5 p-1 bg-black/60 backdrop-blur-md border border-white/10 rounded pointer-events-auto">
-          {CAMERA_PRESETS.map((p, idx) => (
+          {PRESET_LABELS.map((label, idx) => (
             <button
               key={idx}
               onClick={() => selectPreset(idx)}
@@ -757,7 +854,7 @@ export const Vehicle3DViewer: React.FC<Vehicle3DViewerProps> = ({
                   : 'text-[#8B8B8B] hover:text-white'
               }`}
             >
-              {p.label}
+              {label}
             </button>
           ))}
         </div>
