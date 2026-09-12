@@ -2,31 +2,31 @@ import type { Vehicle } from '../types';
 
 export const FLEET_DATA: Vehicle[] = [
   {
-    id: 'porsche-911-carrera-s',
+    id: 'ferrari-488-pista',
     orderNumber: '01 / 06',
-    brand: 'PORSCHE',
-    model: '911',
-    variant: 'CARRERA S (992)',
-    category: 'PERFORMANCE',
-    pricePerDay: 18500,
-    power: '443 HP',
-    acceleration: '3.5 SEC',
-    topSpeed: '308 KM/H',
-    engine: '3.0L Twin-Turbo Boxer 6',
-    transmission: '8-Speed Porsche Doppelkupplung (PDK)',
-    seats: 4,
+    brand: 'FERRARI',
+    model: '488',
+    variant: 'PISTA V8 TWIN-TURBO',
+    category: 'SUPERCAR',
+    pricePerDay: 28500,
+    power: '710 HP',
+    acceleration: '2.85 SEC',
+    topSpeed: '340 KM/H',
+    engine: '3.9L Twin-Turbocharged 90° V8 (F154 CD)',
+    transmission: '7-Speed F1 Dual-Clutch with E-Diff3',
+    seats: 2,
     drivetrain: 'Rear-Wheel Drive (RWD)',
-    curbWeight: '1,515 KG',
+    curbWeight: '1,385 KG',
     fuelType: '98 RON High-Octane Petrol',
-    image: 'https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?auto=format&fit=crop&w=2400&q=85',
+    image: 'https://images.unsplash.com/photo-1592198084033-aade902d1aae?auto=format&fit=crop&w=2400&q=85',
     gallery: [
-      'https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?auto=format&fit=crop&w=2400&q=85',
-      'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=2400&q=85',
-      'https://images.unsplash.com/photo-1611821064430-0d40291d0f0b?auto=format&fit=crop&w=2400&q=85'
+      'https://images.unsplash.com/photo-1592198084033-aade902d1aae?auto=format&fit=crop&w=2400&q=85',
+      'https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=2400&q=85',
+      'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=2400&q=85'
     ],
-    soundProfile: 'Symphonic boxer mechanical roar with active exhaust crackle',
-    description: 'The definitive sports car benchmark. Engineered with obsessive rear-engine balance, telepathic steering response, and effortless grand touring composure across serpentine mountain passes or city skylines.',
-    featuredQuote: 'The 911 does not merely follow the road; it conducts it.'
+    soundProfile: 'Fierce Maranello flat-plane twin-turbo V8 crescendo with active wastegate chatter',
+    description: 'The pinnacle of Maranello special series V8 engineering. Direct motorsport lineage derived from the 488 Challenge and GTE, featuring an F1-derived S-Duct, titanium connecting rods, and instantaneous throttle response that redefines tarmac physics.',
+    featuredQuote: 'Not simply built for speed; sculpted to master the atmosphere.'
   },
   {
     id: 'bmw-m4-competition',

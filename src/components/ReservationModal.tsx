@@ -18,8 +18,6 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  if (!isOpen) return null;
-
   // Selected vehicle (defaults to initial or 1st car)
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle>(
     initialVehicle || FLEET_DATA[0]
@@ -44,7 +42,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   const [email, setEmail] = useState('vance@velocity.luxury');
   const [phone, setPhone] = useState('+91 98200 44819');
   const [licenseNumber, setLicenseNumber] = useState('DL-042023-88419');
-  const [bookingRef, setBookingRef] = useState('VLC-992-8419');
+  const [bookingRef, setBookingRef] = useState('VLC-488-8419');
 
   // Calculate days
   const calculateDays = () => {
@@ -78,6 +76,8 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
       setStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 md:p-8 overflow-y-auto">

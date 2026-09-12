@@ -14,9 +14,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   onClose,
   onReserve,
 }) => {
-  if (!vehicle) return null;
-
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+
+  if (!vehicle) return null;
 
   const photos = vehicle.gallery && vehicle.gallery.length > 0
     ? vehicle.gallery

@@ -65,14 +65,14 @@ export const Hero: React.FC<HeroProps> = ({ onExploreFleet, onOpenReservation })
           </div>
 
           <div className="hidden lg:flex items-center gap-8 text-[0.75rem] font-mono tracking-widest text-[#8B8B8B]">
-            <span>CHASSIS REF // VLC-992</span>
+            <span>CHASSIS REF // VLC-488</span>
             <span>REAL-TIME PBR ENGINE: ACTIVE</span>
             <button
               onClick={handleIgnition}
               className="flex items-center gap-1.5 text-[#C7FF3D] hover:underline cursor-pointer"
             >
               <Play size={10} className="fill-[#C7FF3D]" />
-              <span>{soundIgnited ? 'FLAT-6 IGNITED' : 'IGNITE ENGINE'}</span>
+              <span>{soundIgnited ? 'TWIN-TURBO V8 IGNITED' : 'IGNITE V8 ENGINE'}</span>
             </button>
           </div>
         </div>

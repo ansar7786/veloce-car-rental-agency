@@ -52,7 +52,7 @@ class AudioEngine {
     }
   }
 
-  // Cinematic Engine Ignition Sound (Synthesized with Web Audio API)
+  // Cinematic Ferrari Twin-Turbo V8 Engine Ignition Sound (Synthesized with Web Audio API)
   public playIgnition() {
     if (this.isMuted) return;
     try {
@@ -60,46 +60,73 @@ class AudioEngine {
       if (!this.ctx) return;
       const t = this.ctx.currentTime;
 
-      // Starter motor pulse
+      // High-speed starter motor compression pulses
       const starterOsc = this.ctx.createOscillator();
       const starterGain = this.ctx.createGain();
       starterOsc.type = 'sawtooth';
-      starterOsc.frequency.setValueAtTime(45, t);
-      starterOsc.frequency.exponentialRampToValueAtTime(85, t + 0.35);
+      starterOsc.frequency.setValueAtTime(60, t);
+      starterOsc.frequency.exponentialRampToValueAtTime(110, t + 0.32);
 
-      starterGain.gain.setValueAtTime(0.08, t);
-      starterGain.gain.exponentialRampToValueAtTime(0.01, t + 0.38);
+      starterGain.gain.setValueAtTime(0.09, t);
+      starterGain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
 
       starterOsc.connect(starterGain);
       starterGain.connect(this.ctx.destination);
       starterOsc.start(t);
-      starterOsc.stop(t + 0.38);
+      starterOsc.stop(t + 0.35);
 
-      // Deep V8 / Flat-6 ignition roar
+      // Primary flat-plane V8 exhaust roar & rev spike
       const roarOsc = this.ctx.createOscillator();
       const roarFilter = this.ctx.createBiquadFilter();
       const roarGain = this.ctx.createGain();
 
       roarOsc.type = 'sawtooth';
-      roarOsc.frequency.setValueAtTime(65, t + 0.35);
-      roarOsc.frequency.exponentialRampToValueAtTime(140, t + 0.6);
-      roarOsc.frequency.exponentialRampToValueAtTime(55, t + 1.4);
+      roarOsc.frequency.setValueAtTime(82, t + 0.32);
+      roarOsc.frequency.exponentialRampToValueAtTime(245, t + 0.58);
+      roarOsc.frequency.exponentialRampToValueAtTime(74, t + 1.45);
 
       roarFilter.type = 'lowpass';
-      roarFilter.frequency.setValueAtTime(180, t + 0.35);
-      roarFilter.frequency.exponentialRampToValueAtTime(650, t + 0.6);
-      roarFilter.frequency.exponentialRampToValueAtTime(140, t + 1.4);
+      roarFilter.frequency.setValueAtTime(240, t + 0.32);
+      roarFilter.frequency.exponentialRampToValueAtTime(1200, t + 0.58);
+      roarFilter.frequency.exponentialRampToValueAtTime(210, t + 1.45);
+      roarFilter.Q.setValueAtTime(2.5, t + 0.32);
 
-      roarGain.gain.setValueAtTime(0.0001, t + 0.35);
-      roarGain.gain.exponentialRampToValueAtTime(0.18, t + 0.55);
-      roarGain.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+      roarGain.gain.setValueAtTime(0.0001, t + 0.32);
+      roarGain.gain.exponentialRampToValueAtTime(0.22, t + 0.52);
+      roarGain.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
 
       roarOsc.connect(roarFilter);
       roarFilter.connect(roarGain);
       roarGain.connect(this.ctx.destination);
 
-      roarOsc.start(t + 0.35);
-      roarOsc.stop(t + 1.5);
+      roarOsc.start(t + 0.32);
+      roarOsc.stop(t + 1.6);
+
+      // High-frequency turbo spool & mechanical valve chatter harmonic
+      const turboOsc = this.ctx.createOscillator();
+      const turboFilter = this.ctx.createBiquadFilter();
+      const turboGain = this.ctx.createGain();
+
+      turboOsc.type = 'triangle';
+      turboOsc.frequency.setValueAtTime(164, t + 0.35);
+      turboOsc.frequency.exponentialRampToValueAtTime(490, t + 0.62);
+      turboOsc.frequency.exponentialRampToValueAtTime(148, t + 1.4);
+
+      turboFilter.type = 'bandpass';
+      turboFilter.frequency.setValueAtTime(800, t + 0.35);
+      turboFilter.frequency.exponentialRampToValueAtTime(2200, t + 0.62);
+      turboFilter.frequency.exponentialRampToValueAtTime(600, t + 1.4);
+
+      turboGain.gain.setValueAtTime(0.0001, t + 0.35);
+      turboGain.gain.exponentialRampToValueAtTime(0.08, t + 0.55);
+      turboGain.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+
+      turboOsc.connect(turboFilter);
+      turboFilter.connect(turboGain);
+      turboGain.connect(this.ctx.destination);
+
+      turboOsc.start(t + 0.35);
+      turboOsc.stop(t + 1.4);
     } catch {
       // Ignore audio failure
     }
